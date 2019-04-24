@@ -46,11 +46,23 @@ pub fn unwrap_right<R, N: IntoInfallible>(e: Either<N, R>) -> R {
     }
 }
 
-impl<Input> Parser<Input> for Infallible {
+impl<Input> ParserOnce<Input> for Infallible {
     type Output = Infallible;
     type Error = Infallible;
 
-    fn parse(&mut self, _: Input) -> ParseResult<Input, Self> {
+    fn parse_once(self, _: Input) -> ParseResult<Input, Self> {
+        from_infallible(self)
+    }
+}
+
+impl<Input> ParserMut<Input> for Infallible {
+    fn parse_mut(&mut self, _: Input) -> ParseResult<Input, Self> {
+        from_infallible(*self)
+    }
+}
+
+impl<Input> Parser<Input> for Infallible {
+    fn parse(&self, _: Input) -> ParseResult<Input, Self> {
         from_infallible(*self)
     }
 }

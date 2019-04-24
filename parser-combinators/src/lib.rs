@@ -1,11 +1,14 @@
 
-#![feature(specialization)]
+#![feature(specialization, optin_builtin_traits)]
+
+use std::rc::Rc;
+use std::sync::Arc;
 
 use std::convert::Infallible;
 
-mod infallible;
-
 use either::Either;
+
+mod infallible;
 
 pub mod map;
 pub mod flat_map;
@@ -25,11 +28,21 @@ use filter::*;
 use repeat::*;
 
 pub mod prelude {
-    pub use crate::Parser;
+    pub use crate::{ParserOnce, ParserMut, Parser};
     pub use crate::func::AsParser as _;
     
     pub use crate::reject;
     pub use crate::unimplemented_parser;
+
+    pub fn defer_once<P, Input>(p: P) -> crate::func::DeferOnce<P>
+    where crate::func::DeferOnce<P>: ParserOnce<Input> {
+        p.defer_once()
+    }
+
+    pub fn defer_mut<P, Input>(p: P) -> crate::func::DeferMut<P>
+    where crate::func::DeferMut<P>: ParserMut<Input> {
+        p.defer_mut()
+    }
 
     pub fn defer<P, Input>(p: P) -> crate::func::Defer<P>
     where crate::func::Defer<P>: Parser<Input> {
@@ -47,7 +60,7 @@ pub mod prelude {
 
     #[macro_export]
     macro_rules! reject {
-        ($($type:tt)*) => { <$crate::Reject as $crate::Parser<$($type)*>>::map($crate::Reject, $crate::prelude::util::IntoInfallible::into_infallible) };
+        ($($type:tt)*) => { <$crate::Reject as $crate::ParserOnce<$($type)*>>::map($crate::Reject, $crate::prelude::util::IntoInfallible::into_infallible) };
     }
 
     #[macro_export]
@@ -64,86 +77,252 @@ pub mod prelude {
 }
 
 #[allow(type_alias_bounds)]
-type ParseResult<Input, P: Parser<Input>> = (Input, Result<P::Output, P::Error>);
+type ParseResult<Input, P: ParserMut<Input>> = (Input, Result<P::Output, P::Error>);
 
 pub struct Accept;
 pub struct Reject;
 
-pub trait Parser<Input> {
+pub trait Parser<Input>: ParserMut<Input> {
+    fn parse(&self, input: Input) -> ParseResult<Input, Self>;
+}
+
+pub trait ParserMut<Input>: ParserOnce<Input> {
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self>;
+}
+
+pub struct Impl<T>(T);
+
+pub trait ParserOnce<Input> {
     type Output;
     type Error;
 
-    fn parse(&mut self, input: Input) -> ParseResult<Input, Self>;
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> where Self: Sized;
 
-    fn map<F>(self, f: F) -> Map<Self, F> where Self: Sized , Map<Self, F>: Parser<Input> { Map(self, f) }
+    #[doc(hidden)]
+    #[inline]
+    fn parse_box(self: Box<Self>, input: Input) -> ParseResult<Input, Self> {
+        self.parse_once(input)
+    }
 
-    fn map_err<F>(self, f: F) -> MapErr<Self, F> where Self: Sized , MapErr<Self, F>: Parser<Input> { MapErr(self, f) }
+    #[inline]
+    fn map<F>(self, f: F) -> Map<Self, F> where Self: Sized , Map<Self, F>: ParserMut<Input> { Map(self, f) }
 
-    fn map_both<F, G>(self, f: F, g: G) -> MapBoth<Self, F, G> where Self: Sized , MapBoth<Self, F, G>: Parser<Input> { MapBoth(self, f, g) }
+    #[inline]
+    fn map_err<F>(self, f: F) -> MapErr<Self, F> where Self: Sized , MapErr<Self, F>: ParserMut<Input> { MapErr(self, f) }
 
-    fn flat_map<F>(self, f: F) -> FlatMap<Self, F> where Self: Sized , FlatMap<Self, F>: Parser<Input> { FlatMap(self, f) }
+    #[inline]
+    fn map_both<F, G>(self, f: F, g: G) -> MapBoth<Self, F, G> where Self: Sized , MapBoth<Self, F, G>: ParserMut<Input> { MapBoth(self, f, g) }
 
-    // fn flat_map_err<F>(self, f: F) -> FlatMapErr<Self, F> where Self: Sized , FlatMapErr<Self, F>: Parser<Input>{ FlatMapErr(self, f) }
+    #[inline]
+    fn flat_map<F>(self, f: F) -> FlatMap<Self, F> where Self: Sized , FlatMap<Self, F>: ParserMut<Input> { FlatMap(self, f) }
 
-    // fn flat_map_both<F, G>(self, f: F, g: G) -> FlatMapBoth<Self, F, G> where Self: Sized , FlatMapBoth<Self, F, G>: Parser<Input>{ FlatMapBoth(self, f, g) }
+    #[inline]
+    fn flat_map_err<F>(self, f: F) -> FlatMapErr<Self, F> where Self: Sized , FlatMapErr<Self, F>: ParserMut<Input>{ FlatMapErr(self, f) }
 
-    fn then<P>(self, p: P) -> Then<Self, P> where Self: Sized , Then<Self, P>: Parser<Input> { Then(self, p) }
+    #[inline]
+    fn flat_map_both<F, G>(self, f: F, g: G) -> FlatMapBoth<Self, F, G> where Self: Sized , FlatMapBoth<Self, F, G>: ParserMut<Input>{ FlatMapBoth(self, f, g) }
 
-    fn or<P>(self, p: P) -> Or<Self, P> where Self: Sized , Or<Self, P>: Parser<Input> { Or(self, p) }
+    #[inline]
+    fn then<P>(self, p: P) -> Then<Self, P> where Self: Sized , Then<Self, P>: ParserMut<Input> { Then(self, p) }
 
-    fn and_then<F>(self, f: F) -> AndThen<Self, F> where Self: Sized , AndThen<Self, F>: Parser<Input> { AndThen(self, f) }
+    #[inline]
+    fn or<P>(self, p: P) -> Or<Self, P> where Self: Sized , Or<Self, P>: ParserMut<Input> { Or(self, p) }
 
-    fn or_else<F>(self, f: F) -> OrElse<Self, F> where Self: Sized , OrElse<Self, F>: Parser<Input> { OrElse(self, f) }
+    #[inline]
+    fn and_then<F>(self, f: F) -> AndThen<Self, F> where Self: Sized , AndThen<Self, F>: ParserMut<Input> { AndThen(self, f) }
 
-    fn inspect<F>(self, f: F) -> Inspect<Self, F> where Self: Sized , Inspect<Self, F>: Parser<Input> { Inspect(self, f) }
+    #[inline]
+    fn or_else<F>(self, f: F) -> OrElse<Self, F> where Self: Sized , OrElse<Self, F>: ParserMut<Input> { OrElse(self, f) }
 
-    fn inspect_input<F>(self, f: F) -> InspectInput<Self, F> where Self: Sized , InspectInput<Self, F>: Parser<Input> { InspectInput(self, f) }
+    #[inline]
+    fn inspect<F>(self, f: F) -> Inspect<Self, F> where Self: Sized , Inspect<Self, F>: ParserMut<Input> { Inspect(self, f) }
 
-    fn filter<F>(self, f: F) -> Filter<Self, F> where Self: Sized , Filter<Self, F>: Parser<Input> { Filter(self, f) }
+    #[inline]
+    fn inspect_input<F>(self, f: F) -> InspectInput<Self, F> where Self: Sized , InspectInput<Self, F>: ParserMut<Input> { InspectInput(self, f) }
 
-    fn filter_input<F>(self, f: F) -> FilterInput<Self, F> where Self: Sized , FilterInput<Self, F>: Parser<Input> { FilterInput(self, f) }
+    #[inline]
+    fn filter<F>(self, f: F) -> Filter<Self, F> where Self: Sized , Filter<Self, F>: ParserMut<Input> { Filter(self, f) }
 
-    fn optional(self) -> Optional<Self> where Self: Sized , Optional<Self>: Parser<Input> { Optional(self) }
+    #[inline]
+    fn filter_input<F>(self, f: F) -> FilterInput<Self, F> where Self: Sized , FilterInput<Self, F>: ParserMut<Input> { FilterInput(self, f) }
 
-    fn zero_or_more<F>(self, f: F) -> ZeroOrMore<Self, F> where Self: Sized , ZeroOrMore<Self, F>: Parser<Input> { ZeroOrMore(self, f) }
+    #[inline]
+    fn optional(self) -> Optional<Self> where Self: Sized , Optional<Self>: ParserMut<Input> { Optional(self) }
 
-    fn one_or_more<F>(self, f: F) -> OneOrMore<Self, F> where Self: Sized , OneOrMore<Self, F>: Parser<Input> { OneOrMore(ZeroOrMore(self, f)) }
+    #[inline]
+    fn zero_or_more<F>(self, f: F) -> ZeroOrMore<Self, F> where Self: Sized , ZeroOrMore<Self, F>: ParserMut<Input> { ZeroOrMore(self, f) }
 
-    fn repeat<F, R>(self, r: R, f: F) -> Repeat<Self, F, R> where Self: Sized , Repeat<Self, F, R>: Parser<Input> { Repeat(self, f, r) }
+    #[inline]
+    fn one_or_more<F>(self, f: F) -> OneOrMore<Self, F> where Self: Sized , OneOrMore<Self, F>: ParserMut<Input> { OneOrMore(ZeroOrMore(self, f)) }
+
+    #[inline]
+    fn repeat<F, R>(self, r: R, f: F) -> Repeat<Self, F, R> where Self: Sized , Repeat<Self, F, R>: ParserMut<Input> { Repeat(self, f, r) }
 }
 
-impl<Input> Parser<Input> for Accept {
+impl<Input> ParserOnce<Input> for Accept {
     type Output = ();
     type Error = Infallible;
 
-    fn parse(&mut self, input: Input) -> ParseResult<Input, Self> {
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         (input, Ok(()))
     }
 }
 
-impl<Input> Parser<Input> for Reject {
+impl<Input> ParserMut<Input> for Accept {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        (input, Ok(()))
+    }
+}
+
+impl<Input> Parser<Input> for Accept {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
+        (input, Ok(()))
+    }
+}
+
+impl<Input> ParserOnce<Input> for Reject {
     type Output = Infallible;
     type Error = ();
 
-    fn parse(&mut self, input: Input) -> ParseResult<Input, Self> {
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         (input, Err(()))
     }
 }
 
-impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for Box<P> {
+impl<Input> ParserMut<Input> for Reject {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        (input, Err(()))
+    }
+}
+
+impl<Input> Parser<Input> for Reject {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
+        (input, Err(()))
+    }
+}
+
+impl<Input, P: ?Sized + ParserOnce<Input>> ParserOnce<Input> for Box<P> {
     type Output = P::Output;
     type Error = P::Error;
 
-    fn parse(&mut self, input: Input) -> ParseResult<Input, Self> {
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+        P::parse_box(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + ParserMut<Input>> ParserMut<Input> for Box<P> {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        P::parse_mut(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for Box<P> {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         P::parse(self, input)
     }
 }
 
-impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for &mut P {
+impl<Input, P: ?Sized + Parser<Input>> ParserOnce<Input> for Rc<P> {
     type Output = P::Output;
     type Error = P::Error;
 
-    fn parse(&mut self, input: Input) -> ParseResult<Input, Self> {
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(&self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> ParserMut<Input> for Rc<P> {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for Rc<P> {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> ParserOnce<Input> for Arc<P> {
+    type Output = P::Output;
+    type Error = P::Error;
+
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(&self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> ParserMut<Input> for Arc<P> {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for Arc<P> {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + ParserMut<Input>> ParserOnce<Input> for &mut P {
+    type Output = P::Output;
+    type Error = P::Error;
+
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+        P::parse_mut(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + ParserMut<Input>> ParserMut<Input> for &mut P {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        P::parse_mut(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for &mut P {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> ParserOnce<Input> for &P {
+    type Output = P::Output;
+    type Error = P::Error;
+
+    #[inline]
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> ParserMut<Input> for &P {
+    #[inline]
+    fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
+        P::parse(self, input)
+    }
+}
+
+impl<Input, P: ?Sized + Parser<Input>> Parser<Input> for &P {
+    #[inline]
+    fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         P::parse(self, input)
     }
 }
