@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 
 use parser_combinators::prelude::*;
 
@@ -20,14 +21,16 @@ fn any_char() -> impl for<'a> Parser<&'a str, Output = char, Error = EmptyInput>
 }
 
 fn match_char(find: char) -> impl for<'a> Parser<&'a str, Output = (), Error = FilterError<EmptyInput>> {
-    any_char()
-        .filter(move |&c| c == find)
+    fn make_fn(find: char) -> impl Fn(&char) -> bool { move |&c| c == find }
+    any_char().filter(make_fn(find))
         .map(drop)
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = util::Infallible> {
+    fn is_whitespace(c: &char) -> bool { c.is_whitespace() }
+
     any_char()
-        .filter(|&x| x.is_whitespace())
+        .filter(is_whitespace)
         .zero_or_more(util::ignore)
         .map(drop)
 }
@@ -53,14 +56,24 @@ impl From<FoundZero> for NumberError {
 }
 
 fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
+    fn is_numeric(c: &char) -> bool { c.is_numeric() }
+    fn parse<E>((mut l, r): (String, Result<String, E>)) -> Result<f64, NumberError> {
+        if let Ok(r) = r {
+            let r: String = r;
+            l.push('.');
+            l += &r;
+        }
+        Ok(l.parse()?)
+    }
+
     any_char()
-        .filter(|x| x.is_numeric())
+        .filter(is_numeric)
         .one_or_more(String::new)
         .then(
             match_char('.')
                 .then(
                     any_char()
-                        .filter(|x| x.is_numeric())
+                        .filter(is_numeric)
                         .one_or_more(String::new)
                 )
                 .map(util::snd)
@@ -68,14 +81,7 @@ fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
         )
         .map_err(util::unwrap_left)
         .map_err(Into::into)
-        .flat_map(move |(mut l, r)| {
-            if let Ok(r) = r {
-                let r: String = r;
-                l.push('.');
-                l += &r;
-            }
-            Ok(l.parse()?)
-        })
+        .flat_map(parse)
 }
 
 #[derive(Debug)]
@@ -94,10 +100,11 @@ impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for StringEr
 }
 
 fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError> {
+    fn is_not_quote(&c: &char) -> bool { c != '"' }
     match_char('"')
         .then(
             any_char()
-                .filter(|&x| x != '"')
+                .filter(is_not_quote)
                 .zero_or_more(String::new)
         ).map_both(util::snd, util::unwrap_left)
         .then(match_char('"')).map(util::fst)
@@ -152,27 +159,27 @@ fn generalized_list<Output, Error, P: for<'a> Parser<&'a str, Output = Output, E
     start: char,
     end: char,
     sep: char, 
-    mut item: Item,
-    mut f: F,
+    item: Item,
+    f: F,
 )
 -> impl for<'a> Parser<&'a str, Output = C, Error = ListError>
 where C: Collection<Output> + 'static,
       C: Default,
-      Item: FnMut() -> P,
-      F: FnMut(Output) -> C,
+      Item: Fn() -> P,
+      F: Fn(Output) -> C + Copy,
 {
+    fn assert_fn<F>(f: F) -> F { f }
+
     match_char(start)
         .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
         .then(item()
-            .and_then(move |x| {
-                let mut x = Some(f(x));
-
+            .and_then(assert_fn(move |x| {
                 match_char(sep)
                     .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
                     .then(item()).map(util::snd)
                     .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                    .zero_or_more(move || x.take().unwrap())
-            })
+                    .zero_or_more(move || f(x))
+            }))
             .map_err(util::unwrap_left)
             .optional()
         )
@@ -270,7 +277,9 @@ fn main() -> std::io::Result<()> {
 
     // println!("{}", doc);
 
-    let (doc, value) = value().parse(doc);
+    let mut parser = value();
+
+    let (doc, value) = parser.parse_mut(doc);
     println!("{:#?}", value);
     // let (doc, value) = parser.parse(doc);
     // println!("{:#?}", value);
