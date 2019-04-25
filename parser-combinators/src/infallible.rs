@@ -50,18 +50,23 @@ impl<Input> ParserOnce<Input> for Infallible {
     type Output = Infallible;
     type Error = Infallible;
 
+    #[inline]
     fn parse_once(self, _: Input) -> ParseResult<Input, Self> {
         from_infallible(self)
     }
+    
+    impl_parse_box! { Input }
 }
 
 impl<Input> ParserMut<Input> for Infallible {
+    #[inline]
     fn parse_mut(&mut self, _: Input) -> ParseResult<Input, Self> {
         from_infallible(*self)
     }
 }
 
 impl<Input> Parser<Input> for Infallible {
+    #[inline]
     fn parse(&self, _: Input) -> ParseResult<Input, Self> {
         from_infallible(*self)
     }

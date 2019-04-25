@@ -10,6 +10,7 @@ where P: ParserOnce<Input>,
     type Output = Q::Output;
     type Error = Either<P::Error, Q::Error>;
     
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_once(input);
@@ -26,12 +27,15 @@ where P: ParserOnce<Input>,
             },
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, F, Q> ParserMut<Input> for AndThen<P, F>
 where P: ParserMut<Input>, 
       Q: ParserOnce<Input>,
       F: FnMut(P::Output) -> Q {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_mut(input);
@@ -54,6 +58,7 @@ impl<Input: Clone, P, F, Q> Parser<Input> for AndThen<P, F>
 where P: Parser<Input>, 
       Q: ParserOnce<Input>,
       F: Fn(P::Output) -> Q {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse(input);
@@ -82,6 +87,7 @@ where P: ParserOnce<Input>,
     type Output = Either<P::Output, Q::Output>;
     type Error = Q::Error;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_once(input);
@@ -98,12 +104,15 @@ where P: ParserOnce<Input>,
             },
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, F, Q> ParserMut<Input> for OrElse<P, F>
 where P: ParserMut<Input>, 
       Q: ParserOnce<Input>,
       F: FnMut(P::Error) -> Q {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_mut(input);
@@ -126,6 +135,7 @@ impl<Input: Clone, P, F, Q> Parser<Input> for OrElse<P, F>
 where P: Parser<Input>, 
       Q: ParserOnce<Input>,
       F: Fn(P::Error) -> Q {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse(input);

@@ -9,6 +9,7 @@ where P: ParserOnce<Input>,
     type Output = (P::Output, Q::Output);
     type Error = Either<P::Error, Q::Error>;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_once(input);
@@ -25,11 +26,14 @@ where P: ParserOnce<Input>,
             },
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, Q> ParserMut<Input> for Then<P, Q>
 where P: ParserMut<Input>, 
       Q: ParserMut<Input> {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_mut(input);
@@ -51,6 +55,7 @@ where P: ParserMut<Input>,
 impl<Input: Clone, P, Q> Parser<Input> for Then<P, Q>
 where P: Parser<Input>, 
       Q: Parser<Input> {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse(input);
@@ -78,6 +83,7 @@ where P: ParserOnce<Input>,
     type Output = Either<P::Output, Q::Output>;
     type Error = (P::Error, Q::Error);
 
+    #[inline]
     default fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_once(input);
@@ -94,11 +100,14 @@ where P: ParserOnce<Input>,
             },
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, Q> ParserMut<Input> for Or<P, Q>
 where P: ParserMut<Input>,
       Q: ParserMut<Input>, {
+    #[inline]
     default fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_mut(input);
@@ -120,6 +129,7 @@ where P: ParserMut<Input>,
 impl<Input: Clone, P, Q> Parser<Input> for Or<P, Q>
 where P: Parser<Input>,
       Q: Parser<Input>, {
+    #[inline]
     default fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse(input);
@@ -146,6 +156,7 @@ where P: ParserOnce<Input> + Send,
       P::Error: Send,
       Q::Output: Send, 
       Q::Error: Send {
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;
@@ -171,6 +182,7 @@ where P: ParserMut<Input> + Send,
       P::Error: Send,
       Q::Output: Send, 
       Q::Error: Send {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;
@@ -196,6 +208,7 @@ where P: Parser<Input> + Sync,
       P::Error: Send,
       Q::Output: Send, 
       Q::Error: Send {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;

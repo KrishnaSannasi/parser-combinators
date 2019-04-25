@@ -14,6 +14,7 @@ where F: FnOnce(&P::Output) -> bool {
     type Output = P::Output;
     type Error = FilterError<P::Error>;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_once(input);
@@ -26,10 +27,13 @@ where F: FnOnce(&P::Output) -> bool {
             Err(x) => (old_input, Err(FilterError::ParseError(x)))
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P: ParserMut<Input>, F> ParserMut<Input> for Filter<P, F>
 where F: FnMut(&P::Output) -> bool {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_mut(input);
@@ -46,6 +50,7 @@ where F: FnMut(&P::Output) -> bool {
 
 impl<Input: Clone, P: Parser<Input>, F> Parser<Input> for Filter<P, F>
 where F: Fn(&P::Output) -> bool {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse(input);
@@ -68,6 +73,7 @@ where F: FnOnce(&Input) -> bool {
     type Output = P::Output;
     type Error = FilterError<P::Error>;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         if (self.1)(&input) {
             let (input, out) = self.0.parse_once(input);
@@ -76,10 +82,13 @@ where F: FnOnce(&Input) -> bool {
             (input, Err(FilterError::FilterError))
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input, P: ParserMut<Input>, F> ParserMut<Input> for FilterInput<P, F>
 where F: FnMut(&Input) -> bool {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         if (self.1)(&input) {
             let (input, out) = self.0.parse_mut(input);
@@ -92,6 +101,7 @@ where F: FnMut(&Input) -> bool {
 
 impl<Input, P: Parser<Input>, F> Parser<Input> for FilterInput<P, F>
 where F: Fn(&Input) -> bool {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         if (self.1)(&input) {
             let (input, out) = self.0.parse(input);

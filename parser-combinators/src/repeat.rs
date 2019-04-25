@@ -14,14 +14,18 @@ where P: ParserOnce<Input> {
     type Output = Result<P::Output, P::Error>;
     type Error = Infallible;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse_once(input);
         (input, Ok(out))
     }
+
+    impl_parse_box! { Input }
 }
 
 impl <Input, P> ParserMut<Input> for Optional<P>
 where P: ParserMut<Input> {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse_mut(input);
         (input, Ok(out))
@@ -30,6 +34,7 @@ where P: ParserMut<Input> {
 
 impl <Input, P> Parser<Input> for Optional<P>
 where P: Parser<Input> {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse(input);
         (input, Ok(out))
@@ -46,6 +51,7 @@ where P: ParserMut<Input>,
     type Output = C;
     type Error = Infallible;
 
+    #[inline]
     fn parse_once(mut self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
@@ -61,12 +67,15 @@ where P: ParserMut<Input>,
 
         (input, Ok(c))
     }
+
+    impl_parse_box! { Input }
 }
 
 impl <Input, P, F, C> ParserMut<Input> for ZeroOrMore<P, F>
 where P: ParserMut<Input>,
       F: FnMut() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse_mut(&mut self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
@@ -88,6 +97,7 @@ impl <Input, P, F, C> Parser<Input> for ZeroOrMore<P, F>
 where P: Parser<Input>,
       F: Fn() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse(&self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
@@ -118,6 +128,7 @@ where P: ParserMut<Input>,
     type Output = C;
     type Error = FoundZero;
 
+    #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_once(input);
@@ -130,12 +141,15 @@ where P: ParserMut<Input>,
             (input, Ok(out))
         }
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, F, C> ParserMut<Input> for OneOrMore<P, F>
 where P: ParserMut<Input>,
       F: FnMut() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse_mut(input);
@@ -154,6 +168,7 @@ impl<Input: Clone, P, F, C> Parser<Input> for OneOrMore<P, F>
 where P: Parser<Input>,
       F: Fn() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out) = self.0.parse(input);
@@ -182,6 +197,7 @@ where P: ParserMut<Input>,
     type Output = C;
     type Error = RangeError;
 
+    #[inline]
     fn parse_once(mut self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
@@ -223,6 +239,8 @@ where P: ParserMut<Input>,
 
         (input, Ok(c))
     }
+
+    impl_parse_box! { Input }
 }
 
 impl<Input: Clone, P, F, R, C> ParserMut<Input> for Repeat<P, F, R>
@@ -230,6 +248,7 @@ where P: ParserMut<Input>,
       R: RangeBounds<usize>,
       F: FnMut() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse_mut(&mut self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
@@ -278,6 +297,7 @@ where P: Parser<Input>,
       R: RangeBounds<usize>,
       F: Fn() -> C,
       C: Collection<P::Output> {
+    #[inline]
     fn parse(&self, mut input: Input) -> ParseResult<Input, Self> {
         let mut c = (self.1)();
 
