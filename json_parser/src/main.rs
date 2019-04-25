@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use parser_combinators::prelude::*;
 use parser_combinators::parse::*;
+use parser_combinators::prelude::*;
 
 use parser_combinators::filter::FilterError;
 use parser_combinators::repeat::FoundZero;
@@ -18,12 +18,14 @@ fn any_char() -> impl for<'a> Parser<&'a str, Output = char, Error = EmptyInput>
         let c = s.chars().next().ok_or(EmptyInput)?;
         *s = &s[c.len_utf8()..];
         Ok(c)
-    }).as_parser_in_place()
+    })
+    .as_parser_in_place()
 }
 
-fn match_char(find: char) -> impl for<'a> Parser<&'a str, Output = (), Error = FilterError<EmptyInput>> {
-    any_char().filter(move |&c| c == find)
-        .map(drop)
+fn match_char(
+    find: char,
+) -> impl for<'a> Parser<&'a str, Output = (), Error = FilterError<EmptyInput>> {
+    any_char().filter(move |&c| c == find).map(drop)
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = util::Infallible> {
@@ -38,7 +40,7 @@ use std::num::ParseFloatError;
 #[derive(Debug)]
 enum NumberError {
     ParseError(ParseFloatError),
-    MalformedFloat
+    MalformedFloat,
 }
 
 impl From<ParseFloatError> for NumberError {
@@ -62,10 +64,10 @@ fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
                 .then(
                     any_char()
                         .filter(|x| x.is_numeric())
-                        .one_or_more(String::new)
+                        .one_or_more(String::new),
                 )
                 .map(util::snd)
-                .optional()
+                .optional(),
         )
         .map_err(util::unwrap_left)
         .map_err(Into::into)
@@ -82,26 +84,24 @@ fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
 #[derive(Debug)]
 enum StringError {
     NoStart,
-    NoEnd
+    NoEnd,
 }
 
 impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for StringError {
     fn from(e: Either<FilterError<EmptyInput>, FilterError<EmptyInput>>) -> Self {
         match e {
             Either::Left(_) => StringError::NoStart,
-            Either::Right(_) => StringError::NoEnd
+            Either::Right(_) => StringError::NoEnd,
         }
     }
 }
 
 fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError> {
     match_char('"')
-        .then(
-            any_char()
-                .filter(|&x| x != '"')
-                .zero_or_more(String::new)
-        ).map_both(util::snd, util::unwrap_left)
-        .then(match_char('"')).map(util::fst)
+        .then(any_char().filter(|&x| x != '"').zero_or_more(String::new))
+        .map_both(util::snd, util::unwrap_left)
+        .then(match_char('"'))
+        .map(util::fst)
         .map_err(StringError::from)
 }
 
@@ -109,7 +109,7 @@ fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError
 enum ItemError {
     Key(StringError),
     Colon,
-    Value(Box<ValueError>)
+    Value(Box<ValueError>),
 }
 
 impl From<Either<Either<StringError, FilterError<EmptyInput>>, ValueError>> for ItemError {
@@ -117,25 +117,29 @@ impl From<Either<Either<StringError, FilterError<EmptyInput>>, ValueError>> for 
         match e {
             Either::Left(Either::Left(x)) => ItemError::Key(x),
             Either::Left(Either::Right(_)) => ItemError::Colon,
-            Either::Right(x) => ItemError::Value(Box::new(x))
+            Either::Right(x) => ItemError::Value(Box::new(x)),
         }
     }
 }
 
 fn item() -> impl for<'a> Parser<&'a str, Output = (String, JsonValue), Error = ItemError> {
     string()
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-        .then(match_char(':')).map(util::fst)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
+        .then(match_char(':'))
+        .map(util::fst)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
         .then(value())
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
         .map_err(ItemError::from)
 }
 
 #[derive(Debug)]
 enum ListError {
     NoStart,
-    NoEnd
+    NoEnd,
 }
 
 impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for ListError {
@@ -149,39 +153,53 @@ impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for ListErro
 
 use parser_combinators::repeat::collections::Collection;
 
-fn generalized_list<Output, Error, P: for<'a> Parser<&'a str, Output = Output, Error = Error>, Item, F, C>(
+fn generalized_list<
+    Output,
+    Error,
+    P: for<'a> Parser<&'a str, Output = Output, Error = Error>,
+    Item,
+    F,
+    C,
+>(
     start: char,
     end: char,
-    sep: char, 
+    sep: char,
     item: Item,
     f: F,
-)
--> impl for<'a> Parser<&'a str, Output = C, Error = ListError>
-where C: Default + Collection<Output> + 'static,
-      Item: Fn() -> P,
-      F: Fn(Output) -> C + Copy,
+) -> impl for<'a> Parser<&'a str, Output = C, Error = ListError>
+where
+    C: Default + Collection<Output> + 'static,
+    Item: Fn() -> P,
+    F: Fn(Output) -> C + Copy,
 {
     match_char(start)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-        .then(item()
-            .and_then(move |x| {
-                parser_combinators::parse_once::ParserCombinators::zero_or_more(
-                    match_char(sep)
-                        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                        .then(item()).map(util::snd)
-                        .then(eat_white_space()).map_both(util::fst, util::unwrap_left),
-                    move || f(x)
-                )
-            })
-            .map_err(util::unwrap_left)
-            .optional()
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
+        .then(
+            item()
+                .and_then(move |x| {
+                    parser_combinators::parse_once::ParserCombinators::zero_or_more(
+                        match_char(sep)
+                            .then(eat_white_space())
+                            .map_both(util::fst, util::unwrap_left)
+                            .then(item())
+                            .map(util::snd)
+                            .then(eat_white_space())
+                            .map_both(util::fst, util::unwrap_left),
+                        move || f(x),
+                    )
+                })
+                .map_err(util::unwrap_left)
+                .optional(),
         )
         .map_both(util::snd, util::unwrap_left)
-        .then(match_char(end)).map(util::fst)
+        .then(match_char(end))
+        .map(util::fst)
         .map_both(Result::unwrap_or_default, ListError::from)
 }
 
-fn object() -> impl for<'a> Parser<&'a str, Output = HashMap<String, JsonValue>, Error = ListError> {
+fn object() -> impl for<'a> Parser<&'a str, Output = HashMap<String, JsonValue>, Error = ListError>
+{
     generalized_list('{', '}', ',', item, |(id, value)| {
         let mut hm = HashMap::new();
         hm.insert(id, value);
@@ -198,31 +216,41 @@ struct ValueError {
     number_error: NumberError,
     string_error: StringError,
     object_error: ListError,
-    list_error: ListError
+    list_error: ListError,
 }
 
 impl From<(((NumberError, StringError), ListError), ListError)> for ValueError {
-    fn from((((number_error, string_error), object_error), list_error): (((NumberError, StringError), ListError), ListError)) -> Self {
+    fn from(
+        (((number_error, string_error), object_error), list_error): (
+            ((NumberError, StringError), ListError),
+            ListError,
+        ),
+    ) -> Self {
         Self {
             number_error,
             string_error,
             object_error,
-            list_error
+            list_error,
         }
     }
 }
 
-fn value() -> Box<dyn for<'a> Parser<&'a str, Output = JsonValue, Error = ValueError> + Send + Sync> {
+fn value() -> Box<dyn for<'a> Parser<&'a str, Output = JsonValue, Error = ValueError> + Send + Sync>
+{
     // This box doesn't allocate, because the insides are zero-sized
     Box::new(
         defer(|| {
             reject!(&str)
-                .or(number().map(JsonValue::from)).map_both(util::unwrap_right, util::snd)
-                .or(string().map(JsonValue::from)).map(Either::into_inner)
-                .or(list().map(JsonValue::from)).map(Either::into_inner)
-                .or(object().map(JsonValue::from)).map(Either::into_inner)
+                .or(number().map(JsonValue::from))
+                .map_both(util::unwrap_right, util::snd)
+                .or(string().map(JsonValue::from))
+                .map(Either::into_inner)
+                .or(list().map(JsonValue::from))
+                .map(Either::into_inner)
+                .or(object().map(JsonValue::from))
+                .map(Either::into_inner)
         })
-        .map_err(ValueError::from)
+        .map_err(ValueError::from),
     ) as Box<dyn for<'a> Parser<&'a str, Output = _, Error = _> + Send + Sync>
 }
 
