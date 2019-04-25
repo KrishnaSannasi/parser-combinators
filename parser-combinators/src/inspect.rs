@@ -4,7 +4,9 @@ use super::*;
 pub struct Inspect<P, F>(pub(crate) P, pub(crate) F);
 
 impl<Input, P: ParserOnce<Input>, F> ParserOnce<Input> for Inspect<P, F>
-where F: FnOnce(&Result<P::Output, P::Error>) {
+where
+    F: FnOnce(&Result<P::Output, P::Error>),
+{
     type Output = P::Output;
     type Error = P::Error;
 
@@ -19,7 +21,9 @@ where F: FnOnce(&Result<P::Output, P::Error>) {
 }
 
 impl<Input, P: ParserMut<Input>, F> ParserMut<Input> for Inspect<P, F>
-where F: FnMut(&Result<P::Output, P::Error>) {
+where
+    F: FnMut(&Result<P::Output, P::Error>),
+{
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse_mut(input);
@@ -29,7 +33,9 @@ where F: FnMut(&Result<P::Output, P::Error>) {
 }
 
 impl<Input, P: Parser<Input>, F> Parser<Input> for Inspect<P, F>
-where F: Fn(&Result<P::Output, P::Error>) {
+where
+    F: Fn(&Result<P::Output, P::Error>),
+{
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse(input);
@@ -42,7 +48,9 @@ where F: Fn(&Result<P::Output, P::Error>) {
 pub struct InspectInput<P, F>(pub(crate) P, pub(crate) F);
 
 impl<Input, P: ParserOnce<Input>, F> ParserOnce<Input> for InspectInput<P, F>
-where F: FnOnce(&Input) {
+where
+    F: FnOnce(&Input),
+{
     type Output = P::Output;
     type Error = P::Error;
 
@@ -57,7 +65,9 @@ where F: FnOnce(&Input) {
 }
 
 impl<Input, P: ParserMut<Input>, F> ParserMut<Input> for InspectInput<P, F>
-where F: FnMut(&Input) {
+where
+    F: FnMut(&Input),
+{
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse_mut(input);
@@ -67,7 +77,9 @@ where F: FnMut(&Input) {
 }
 
 impl<Input, P: Parser<Input>, F> Parser<Input> for InspectInput<P, F>
-where F: Fn(&Input) {
+where
+    F: Fn(&Input),
+{
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let (input, out) = self.0.parse(input);

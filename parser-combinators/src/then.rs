@@ -4,8 +4,10 @@ use super::*;
 pub struct Then<P, Q>(pub(crate) P, pub(crate) Q);
 
 impl<Input: Clone, P, Q> ParserOnce<Input> for Then<P, Q>
-where P: ParserOnce<Input>, 
-      Q: ParserOnce<Input> {
+where
+    P: ParserOnce<Input>,
+    Q: ParserOnce<Input>,
+{
     type Output = (P::Output, Q::Output);
     type Error = Either<P::Error, Q::Error>;
 
@@ -13,7 +15,7 @@ where P: ParserOnce<Input>,
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_once(input);
-        
+
         match out_0 {
             Err(x) => (old_input, Err(Either::Left(x))),
             Ok(out_0) => {
@@ -23,7 +25,7 @@ where P: ParserOnce<Input>,
                     Err(x) => (old_input, Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 
@@ -31,13 +33,15 @@ where P: ParserOnce<Input>,
 }
 
 impl<Input: Clone, P, Q> ParserMut<Input> for Then<P, Q>
-where P: ParserMut<Input>, 
-      Q: ParserMut<Input> {
+where
+    P: ParserMut<Input>,
+    Q: ParserMut<Input>,
+{
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse_mut(input);
-        
+
         match out_0 {
             Err(x) => (old_input, Err(Either::Left(x))),
             Ok(out_0) => {
@@ -47,19 +51,21 @@ where P: ParserMut<Input>,
                     Err(x) => (old_input, Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 }
 
 impl<Input: Clone, P, Q> Parser<Input> for Then<P, Q>
-where P: Parser<Input>, 
-      Q: Parser<Input> {
+where
+    P: Parser<Input>,
+    Q: Parser<Input>,
+{
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
         let (input, out_0) = self.0.parse(input);
-        
+
         match out_0 {
             Err(x) => (old_input, Err(Either::Left(x))),
             Ok(out_0) => {
@@ -69,7 +75,7 @@ where P: Parser<Input>,
                     Err(x) => (old_input, Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 }
@@ -78,8 +84,10 @@ where P: Parser<Input>,
 pub struct Or<P, Q>(pub(crate) P, pub(crate) Q);
 
 impl<Input: Clone, P, Q> ParserOnce<Input> for Or<P, Q>
-where P: ParserOnce<Input>,
-      Q: ParserOnce<Input>, {
+where
+    P: ParserOnce<Input>,
+    Q: ParserOnce<Input>,
+{
     type Output = Either<P::Output, Q::Output>;
     type Error = (P::Error, Q::Error);
 
@@ -97,7 +105,7 @@ where P: ParserOnce<Input>,
                     Ok(x) => (input, Ok(Either::Right(x))),
                     Err(out_1) => (old_input, Err((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 
@@ -105,8 +113,10 @@ where P: ParserOnce<Input>,
 }
 
 impl<Input: Clone, P, Q> ParserMut<Input> for Or<P, Q>
-where P: ParserMut<Input>,
-      Q: ParserMut<Input>, {
+where
+    P: ParserMut<Input>,
+    Q: ParserMut<Input>,
+{
     #[inline]
     default fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
@@ -121,14 +131,16 @@ where P: ParserMut<Input>,
                     Ok(x) => (input, Ok(Either::Right(x))),
                     Err(out_1) => (old_input, Err((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 }
 
 impl<Input: Clone, P, Q> Parser<Input> for Or<P, Q>
-where P: Parser<Input>,
-      Q: Parser<Input>, {
+where
+    P: Parser<Input>,
+    Q: Parser<Input>,
+{
     #[inline]
     default fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let old_input = input.clone();
@@ -143,28 +155,28 @@ where P: Parser<Input>,
                     Ok(x) => (input, Ok(Either::Right(x))),
                     Err(out_1) => (old_input, Err((out_0, out_1))),
                 }
-            },
+            }
         }
     }
 }
 
 impl<Input: Send + Clone, P, Q> ParserOnce<Input> for Or<P, Q>
-where P: ParserOnce<Input> + Send, 
-      Q: ParserOnce<Input> + Send,
-      
-      P::Output: Send, 
-      P::Error: Send,
-      Q::Output: Send, 
-      Q::Error: Send {
+where
+    P: ParserOnce<Input> + Send,
+    Q: ParserOnce<Input> + Send,
+
+    P::Output: Send,
+    P::Error: Send,
+    Q::Output: Send,
+    Q::Error: Send,
+{
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;
 
-        let ((input_0, out_0), (input_1, out_1)) = rayon::join(
-            || first.parse_once(input_0),
-            || second.parse_once(input_1),
-        );
+        let ((input_0, out_0), (input_1, out_1)) =
+            rayon::join(|| first.parse_once(input_0), || second.parse_once(input_1));
 
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),
@@ -175,22 +187,22 @@ where P: ParserOnce<Input> + Send,
 }
 
 impl<Input: Send + Clone, P, Q> ParserMut<Input> for Or<P, Q>
-where P: ParserMut<Input> + Send, 
-      Q: ParserMut<Input> + Send,
-      
-      P::Output: Send, 
-      P::Error: Send,
-      Q::Output: Send, 
-      Q::Error: Send {
+where
+    P: ParserMut<Input> + Send,
+    Q: ParserMut<Input> + Send,
+
+    P::Output: Send,
+    P::Error: Send,
+    Q::Output: Send,
+    Q::Error: Send,
+{
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;
 
-        let ((input_0, out_0), (input_1, out_1)) = rayon::join(
-            || first.parse_mut(input_0),
-            || second.parse_mut(input_1),
-        );
+        let ((input_0, out_0), (input_1, out_1)) =
+            rayon::join(|| first.parse_mut(input_0), || second.parse_mut(input_1));
 
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),
@@ -201,22 +213,22 @@ where P: ParserMut<Input> + Send,
 }
 
 impl<Input: Send + Clone, P, Q> Parser<Input> for Or<P, Q>
-where P: Parser<Input> + Sync, 
-      Q: Parser<Input> + Sync,
-      
-      P::Output: Send, 
-      P::Error: Send,
-      Q::Output: Send, 
-      Q::Error: Send {
+where
+    P: Parser<Input> + Sync,
+    Q: Parser<Input> + Sync,
+
+    P::Output: Send,
+    P::Error: Send,
+    Q::Output: Send,
+    Q::Error: Send,
+{
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
         let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
         let Or(first, second) = self;
-        
-        let ((input_0, out_0), (input_1, out_1)) = rayon::join(
-            move || first.parse(input_0),
-            move || second.parse(input_1),
-        );
+
+        let ((input_0, out_0), (input_1, out_1)) =
+            rayon::join(move || first.parse(input_0), move || second.parse(input_1));
 
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),

@@ -35,14 +35,14 @@ impl<T: IntoInfallible, U: IntoInfallible> IntoInfallible for Either<T, U> {
 pub fn unwrap_left<L, N: IntoInfallible>(e: Either<L, N>) -> L {
     match e {
         Either::Left(l) => l,
-        Either::Right(r) => from_infallible(r.into_infallible())
+        Either::Right(r) => from_infallible(r.into_infallible()),
     }
 }
 
 pub fn unwrap_right<R, N: IntoInfallible>(e: Either<N, R>) -> R {
     match e {
         Either::Left(l) => from_infallible(l.into_infallible()),
-        Either::Right(r) => r
+        Either::Right(r) => r,
     }
 }
 
@@ -54,7 +54,7 @@ impl<Input> ParserOnce<Input> for Infallible {
     fn parse_once(self, _: Input) -> ParseResult<Input, Self> {
         from_infallible(self)
     }
-    
+
     impl_parse_box! { Input }
 }
 

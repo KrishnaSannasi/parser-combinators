@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 #![feature(specialization, optin_builtin_traits)]
 
 use std::rc::Rc;
@@ -19,46 +18,52 @@ macro_rules! impl_parse_box {
 
 mod infallible;
 
-pub mod map;
-pub mod flat_map;
-pub mod then;
 pub mod and_then;
-pub mod inspect;
-pub mod func;
 pub mod filter;
+pub mod flat_map;
+pub mod func;
+pub mod inspect;
+pub mod map;
 pub mod repeat;
+pub mod then;
 
-pub mod parse_once;
-pub mod parse_mut;
 pub mod parse;
+pub mod parse_mut;
+pub mod parse_once;
 
-use map::*;
-use flat_map::*;
-use then::*;
 use and_then::*;
-use inspect::*;
 use filter::*;
+use flat_map::*;
+use inspect::*;
+use map::*;
 use repeat::*;
+use then::*;
 
 pub mod prelude {
-    pub use crate::{ParserOnce, ParserMut, Parser};
     pub use crate::func::AsParser as _;
-    
+    pub use crate::{Parser, ParserMut, ParserOnce};
+
     pub use crate::reject;
     pub use crate::unimplemented_parser;
 
     pub fn defer_once<P, Input>(p: P) -> crate::func::DeferOnce<P>
-    where crate::func::DeferOnce<P>: ParserOnce<Input> {
+    where
+        crate::func::DeferOnce<P>: ParserOnce<Input>,
+    {
         p.defer_once()
     }
 
     pub fn defer_mut<P, Input>(p: P) -> crate::func::DeferMut<P>
-    where crate::func::DeferMut<P>: ParserMut<Input> {
+    where
+        crate::func::DeferMut<P>: ParserMut<Input>,
+    {
         p.defer_mut()
     }
 
     pub fn defer<P, Input>(p: P) -> crate::func::Defer<P>
-    where crate::func::Defer<P>: Parser<Input> {
+    where
+        crate::func::Defer<P>: Parser<Input>,
+    {
         p.defer()
     }
 
@@ -67,8 +72,12 @@ pub mod prelude {
 
         pub fn ignore() {}
 
-        pub fn fst<T, U>((t, _): (T, U)) -> T { t }
-        pub fn snd<T, U>((_, u): (T, U)) -> U { u }
+        pub fn fst<T, U>((t, _): (T, U)) -> T {
+            t
+        }
+        pub fn snd<T, U>((_, u): (T, U)) -> U {
+            u
+        }
     }
 
     #[macro_export]
@@ -111,7 +120,9 @@ pub trait ParserOnce<Input> {
     type Output;
     type Error;
 
-    fn parse_once(self, input: Input) -> ParseResult<Input, Self> where Self: Sized;
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self>
+    where
+        Self: Sized;
 
     fn parse_box(self: Box<Self>, input: Input) -> ParseResult<Input, Self>;
 }
@@ -124,7 +135,7 @@ impl<Input> ParserOnce<Input> for Accept {
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         (input, Ok(()))
     }
-    
+
     impl_parse_box! { Input }
 }
 
@@ -150,7 +161,7 @@ impl<Input> ParserOnce<Input> for Reject {
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         (input, Err(()))
     }
-    
+
     impl_parse_box! { Input }
 }
 
@@ -228,7 +239,7 @@ impl<Input, P: ?Sized + Parser<Input>> ParserOnce<Input> for Arc<P> {
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         P::parse(&self, input)
     }
-    
+
     impl_parse_box! { Input }
 }
 
@@ -254,7 +265,7 @@ impl<Input, P: ?Sized + ParserMut<Input>> ParserOnce<Input> for &mut P {
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         P::parse_mut(self, input)
     }
-    
+
     impl_parse_box! { Input }
 }
 
@@ -280,7 +291,7 @@ impl<Input, P: ?Sized + Parser<Input>> ParserOnce<Input> for &P {
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
         P::parse(self, input)
     }
-    
+
     impl_parse_box! { Input }
 }
 
