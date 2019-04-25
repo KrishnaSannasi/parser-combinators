@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use parser_combinators::prelude::*;
+use parser_combinators::parse::*;
 
 use parser_combinators::filter::FilterError;
 use parser_combinators::repeat::FoundZero;
@@ -21,16 +22,13 @@ fn any_char() -> impl for<'a> Parser<&'a str, Output = char, Error = EmptyInput>
 }
 
 fn match_char(find: char) -> impl for<'a> Parser<&'a str, Output = (), Error = FilterError<EmptyInput>> {
-    fn make_fn(find: char) -> impl Fn(&char) -> bool { move |&c| c == find }
-    any_char().filter(make_fn(find))
+    any_char().filter(move |&c| c == find)
         .map(drop)
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = util::Infallible> {
-    fn is_whitespace(c: &char) -> bool { c.is_whitespace() }
-
     any_char()
-        .filter(is_whitespace)
+        .filter(|x| x.is_whitespace())
         .zero_or_more(util::ignore)
         .map(drop)
 }
@@ -56,24 +54,14 @@ impl From<FoundZero> for NumberError {
 }
 
 fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
-    fn is_numeric(c: &char) -> bool { c.is_numeric() }
-    fn parse<E>((mut l, r): (String, Result<String, E>)) -> Result<f64, NumberError> {
-        if let Ok(r) = r {
-            let r: String = r;
-            l.push('.');
-            l += &r;
-        }
-        Ok(l.parse()?)
-    }
-
     any_char()
-        .filter(is_numeric)
+        .filter(|x| x.is_numeric())
         .one_or_more(String::new)
         .then(
             match_char('.')
                 .then(
                     any_char()
-                        .filter(is_numeric)
+                        .filter(|x| x.is_numeric())
                         .one_or_more(String::new)
                 )
                 .map(util::snd)
@@ -81,7 +69,14 @@ fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
         )
         .map_err(util::unwrap_left)
         .map_err(Into::into)
-        .flat_map(parse)
+        .flat_map(|(mut l, r)| {
+            if let Ok(r) = r {
+                let r: String = r;
+                l.push('.');
+                l += &r;
+            }
+            Ok(l.parse()?)
+        })
 }
 
 #[derive(Debug)]
@@ -100,11 +95,10 @@ impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for StringEr
 }
 
 fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError> {
-    fn is_not_quote(&c: &char) -> bool { c != '"' }
     match_char('"')
         .then(
             any_char()
-                .filter(is_not_quote)
+                .filter(|&x| x != '"')
                 .zero_or_more(String::new)
         ).map_both(util::snd, util::unwrap_left)
         .then(match_char('"')).map(util::fst)
@@ -163,23 +157,22 @@ fn generalized_list<Output, Error, P: for<'a> Parser<&'a str, Output = Output, E
     f: F,
 )
 -> impl for<'a> Parser<&'a str, Output = C, Error = ListError>
-where C: Collection<Output> + 'static,
-      C: Default,
+where C: Default + Collection<Output> + 'static,
       Item: Fn() -> P,
       F: Fn(Output) -> C + Copy,
 {
-    fn assert_fn<F>(f: F) -> F { f }
-
     match_char(start)
         .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
         .then(item()
-            .and_then(assert_fn(move |x| {
-                match_char(sep)
-                    .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                    .then(item()).map(util::snd)
-                    .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                    .zero_or_more(move || f(x))
-            }))
+            .and_then(move |x| {
+                parser_combinators::parse_once::ParserCombinators::zero_or_more(
+                    match_char(sep)
+                        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+                        .then(item()).map(util::snd)
+                        .then(eat_white_space()).map_both(util::fst, util::unwrap_left),
+                    move || f(x)
+                )
+            })
             .map_err(util::unwrap_left)
             .optional()
         )
@@ -226,8 +219,8 @@ fn value() -> Box<dyn for<'a> Parser<&'a str, Output = JsonValue, Error = ValueE
             reject!(&str)
                 .or(number().map(JsonValue::from)).map_both(util::unwrap_right, util::snd)
                 .or(string().map(JsonValue::from)).map(Either::into_inner)
-                .or(object().map(JsonValue::from)).map(Either::into_inner)
                 .or(list().map(JsonValue::from)).map(Either::into_inner)
+                .or(object().map(JsonValue::from)).map(Either::into_inner)
         })
         .map_err(ValueError::from)
     ) as Box<dyn for<'a> Parser<&'a str, Output = _, Error = _> + Send + Sync>
@@ -269,13 +262,11 @@ fn main() -> std::io::Result<()> {
     use std::fs::File;
     use std::io::Read;
 
-    let mut file = File::open("../text.json")?;
+    let mut file = File::open("E:/Programming/Rust/parser-combin/text.json")?;
 
     let mut doc = String::new();
     file.read_to_string(&mut doc)?;
     let doc: &str = &doc;
-
-    // println!("{}", doc);
 
     let mut parser = value();
 

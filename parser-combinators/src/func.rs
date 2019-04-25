@@ -48,7 +48,7 @@ where F: FnOnce(Input) -> (Input, Result<Output, Error>) {
     }
 
     #[inline]
-    fn parse_box(self: Box<Self>, input: Input) -> ParseResult<Input, Self> {
+    fn parse_box(self: Box<Self>, _input: Input) -> ParseResult<Input, Self> {
         unimplemented!("`Box<dyn FnOnce(..) -> _>` cannot be called, so it cannot be used as a parser")
     }
 }
