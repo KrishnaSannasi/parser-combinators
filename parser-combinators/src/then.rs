@@ -3,7 +3,7 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Then<P, Q>(pub(crate) P, pub(crate) Q);
 
-impl<Input: Clone, P, Q> ParserOnce<Input> for Then<P, Q>
+impl<Input: Restore, P, Q> ParserOnce<Input> for Then<P, Q>
 where
     P: ParserOnce<Input>,
     Q: ParserOnce<Input>,
@@ -13,16 +13,16 @@ where
 
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse_once(input);
 
         match out_0 {
-            Err(x) => (old_input, Err(Either::Left(x))),
+            Err(x) => (input.restore(save), Err(Either::Left(x))),
             Ok(out_0) => {
                 let (input, out_1) = self.1.parse_once(input);
 
                 match out_1 {
-                    Err(x) => (old_input, Err(Either::Right(x))),
+                    Err(x) => (input.restore(save), Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
             }
@@ -32,23 +32,23 @@ where
     impl_parse_box! { Input }
 }
 
-impl<Input: Clone, P, Q> ParserMut<Input> for Then<P, Q>
+impl<Input: Restore, P, Q> ParserMut<Input> for Then<P, Q>
 where
     P: ParserMut<Input>,
     Q: ParserMut<Input>,
 {
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse_mut(input);
 
         match out_0 {
-            Err(x) => (old_input, Err(Either::Left(x))),
+            Err(x) => (input.restore(save), Err(Either::Left(x))),
             Ok(out_0) => {
                 let (input, out_1) = self.1.parse_mut(input);
 
                 match out_1 {
-                    Err(x) => (old_input, Err(Either::Right(x))),
+                    Err(x) => (input.restore(save), Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
             }
@@ -56,23 +56,23 @@ where
     }
 }
 
-impl<Input: Clone, P, Q> Parser<Input> for Then<P, Q>
+impl<Input: Restore, P, Q> Parser<Input> for Then<P, Q>
 where
     P: Parser<Input>,
     Q: Parser<Input>,
 {
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse(input);
 
         match out_0 {
-            Err(x) => (old_input, Err(Either::Left(x))),
+            Err(x) => (input.restore(save), Err(Either::Left(x))),
             Ok(out_0) => {
                 let (input, out_1) = self.1.parse(input);
 
                 match out_1 {
-                    Err(x) => (old_input, Err(Either::Right(x))),
+                    Err(x) => (input.restore(save), Err(Either::Right(x))),
                     Ok(out_1) => (input, Ok((out_0, out_1))),
                 }
             }
@@ -83,7 +83,7 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Or<P, Q>(pub(crate) P, pub(crate) Q);
 
-impl<Input: Clone, P, Q> ParserOnce<Input> for Or<P, Q>
+impl<Input: Restore, P, Q> ParserOnce<Input> for Or<P, Q>
 where
     P: ParserOnce<Input>,
     Q: ParserOnce<Input>,
@@ -93,17 +93,17 @@ where
 
     #[inline]
     default fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse_once(input);
 
         match out_0 {
             Ok(x) => (input, Ok(Either::Left(x))),
             Err(out_0) => {
-                let (input, out_1) = self.1.parse_once(input);
+                let (input, out_1) = self.1.parse_once(input.restore(save));
 
                 match out_1 {
                     Ok(x) => (input, Ok(Either::Right(x))),
-                    Err(out_1) => (old_input, Err((out_0, out_1))),
+                    Err(out_1) => (input.restore(save), Err((out_0, out_1))),
                 }
             }
         }
@@ -112,55 +112,55 @@ where
     impl_parse_box! { Input }
 }
 
-impl<Input: Clone, P, Q> ParserMut<Input> for Or<P, Q>
+impl<Input: Restore, P, Q> ParserMut<Input> for Or<P, Q>
 where
     P: ParserMut<Input>,
     Q: ParserMut<Input>,
 {
     #[inline]
     default fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse_mut(input);
 
         match out_0 {
             Ok(x) => (input, Ok(Either::Left(x))),
             Err(out_0) => {
-                let (input, out_1) = self.1.parse_mut(input);
+                let (input, out_1) = self.1.parse_mut(input.restore(save));
 
                 match out_1 {
                     Ok(x) => (input, Ok(Either::Right(x))),
-                    Err(out_1) => (old_input, Err((out_0, out_1))),
+                    Err(out_1) => (input.restore(save), Err((out_0, out_1))),
                 }
             }
         }
     }
 }
 
-impl<Input: Clone, P, Q> Parser<Input> for Or<P, Q>
+impl<Input: Restore, P, Q> Parser<Input> for Or<P, Q>
 where
     P: Parser<Input>,
     Q: Parser<Input>,
 {
     #[inline]
     default fn parse(&self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out_0) = self.0.parse(input);
 
         match out_0 {
             Ok(x) => (input, Ok(Either::Left(x))),
             Err(out_0) => {
-                let (input, out_1) = self.1.parse(input);
+                let (input, out_1) = self.1.parse(input.restore(save));
 
                 match out_1 {
                     Ok(x) => (input, Ok(Either::Right(x))),
-                    Err(out_1) => (old_input, Err((out_0, out_1))),
+                    Err(out_1) => (input.restore(save), Err((out_0, out_1))),
                 }
             }
         }
     }
 }
 
-impl<Input: Send + Clone, P, Q> ParserOnce<Input> for Or<P, Q>
+impl<Input: Send + Restore + Clone, P, Q> ParserOnce<Input> for Or<P, Q>
 where
     P: ParserOnce<Input> + Send,
     Q: ParserOnce<Input> + Send,
@@ -172,7 +172,7 @@ where
 {
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
-        let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
+        let (save, input_0, input_1) = (input.save(), input.clone(), input);
         let Or(first, second) = self;
 
         let ((input_0, out_0), (input_1, out_1)) =
@@ -181,12 +181,12 @@ where
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),
             (_, Ok(out_1)) => (input_1, Ok(Either::Right(out_1))),
-            (Err(err_0), Err(err_1)) => (old_input, Err((err_0, err_1))),
+            (Err(err_0), Err(err_1)) => (input_1.restore(save), Err((err_0, err_1))),
         }
     }
 }
 
-impl<Input: Send + Clone, P, Q> ParserMut<Input> for Or<P, Q>
+impl<Input: Send + Restore + Clone, P, Q> ParserMut<Input> for Or<P, Q>
 where
     P: ParserMut<Input> + Send,
     Q: ParserMut<Input> + Send,
@@ -198,7 +198,7 @@ where
 {
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
-        let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
+        let (save, input_0, input_1) = (input.save(), input.clone(), input);
         let Or(first, second) = self;
 
         let ((input_0, out_0), (input_1, out_1)) =
@@ -207,12 +207,12 @@ where
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),
             (_, Ok(out_1)) => (input_1, Ok(Either::Right(out_1))),
-            (Err(err_0), Err(err_1)) => (old_input, Err((err_0, err_1))),
+            (Err(err_0), Err(err_1)) => (input_1.restore(save), Err((err_0, err_1))),
         }
     }
 }
 
-impl<Input: Send + Clone, P, Q> Parser<Input> for Or<P, Q>
+impl<Input: Send + Restore + Clone, P, Q> Parser<Input> for Or<P, Q>
 where
     P: Parser<Input> + Sync,
     Q: Parser<Input> + Sync,
@@ -224,7 +224,7 @@ where
 {
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
-        let (old_input, input_0, input_1) = (input.clone(), input.clone(), input);
+        let (save, input_0, input_1) = (input.save(), input.clone(), input);
         let Or(first, second) = self;
 
         let ((input_0, out_0), (input_1, out_1)) =
@@ -233,7 +233,7 @@ where
         match (out_0, out_1) {
             (Ok(out_0), _) => (input_0, Ok(Either::Left(out_0))),
             (_, Ok(out_1)) => (input_1, Ok(Either::Right(out_1))),
-            (Err(err_0), Err(err_1)) => (old_input, Err((err_0, err_1))),
+            (Err(err_0), Err(err_1)) => (input_1.restore(save), Err((err_0, err_1))),
         }
     }
 }

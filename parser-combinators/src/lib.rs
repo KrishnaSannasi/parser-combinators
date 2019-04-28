@@ -106,6 +106,23 @@ type ParseResult<Input, P: ParserMut<Input>> = (Input, Result<P::Output, P::Erro
 pub struct Accept;
 pub struct Reject;
 
+pub trait Restore {
+    type SavePoint: Copy;
+
+    fn save(&self) -> Self::SavePoint;
+    fn restore(self, save: Self::SavePoint) -> Self;
+}
+
+impl<T: Copy> Restore for T {
+    type SavePoint = Self;
+
+    #[inline(always)]
+    fn save(&self) -> Self { *self }
+    
+    #[inline(always)]
+    fn restore(self, save: Self::SavePoint) -> Self { save }
+}
+
 pub trait Parser<Input>: ParserMut<Input> {
     fn parse(&self, input: Input) -> ParseResult<Input, Self>;
 }

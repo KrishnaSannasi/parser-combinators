@@ -9,7 +9,7 @@ pub enum FilterError<E> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Filter<P, F>(pub(crate) P, pub(crate) F);
 
-impl<Input: Clone, P: ParserOnce<Input>, F> ParserOnce<Input> for Filter<P, F>
+impl<Input: Restore, P: ParserOnce<Input>, F> ParserOnce<Input> for Filter<P, F>
 where
     F: FnOnce(&P::Output) -> bool,
 {
@@ -18,61 +18,61 @@ where
 
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse_once(input);
         match out {
             Ok(x) => {
                 if (self.1)(&x) {
                     (input, Ok(x))
                 } else {
-                    (old_input, Err(FilterError::FilterError))
+                    (input.restore(save), Err(FilterError::FilterError))
                 }
             }
-            Err(x) => (old_input, Err(FilterError::ParseError(x))),
+            Err(x) => (input.restore(save), Err(FilterError::ParseError(x))),
         }
     }
 
     impl_parse_box! { Input }
 }
 
-impl<Input: Clone, P: ParserMut<Input>, F> ParserMut<Input> for Filter<P, F>
+impl<Input: Restore, P: ParserMut<Input>, F> ParserMut<Input> for Filter<P, F>
 where
     F: FnMut(&P::Output) -> bool,
 {
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse_mut(input);
         match out {
             Ok(x) => {
                 if (self.1)(&x) {
                     (input, Ok(x))
                 } else {
-                    (old_input, Err(FilterError::FilterError))
+                    (input.restore(save), Err(FilterError::FilterError))
                 }
             }
-            Err(x) => (old_input, Err(FilterError::ParseError(x))),
+            Err(x) => (input.restore(save), Err(FilterError::ParseError(x))),
         }
     }
 }
 
-impl<Input: Clone, P: Parser<Input>, F> Parser<Input> for Filter<P, F>
+impl<Input: Restore, P: Parser<Input>, F> Parser<Input> for Filter<P, F>
 where
     F: Fn(&P::Output) -> bool,
 {
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse(input);
         match out {
             Ok(x) => {
                 if (self.1)(&x) {
                     (input, Ok(x))
                 } else {
-                    (old_input, Err(FilterError::FilterError))
+                    (input.restore(save), Err(FilterError::FilterError))
                 }
             }
-            Err(x) => (old_input, Err(FilterError::ParseError(x))),
+            Err(x) => (input.restore(save), Err(FilterError::ParseError(x))),
         }
     }
 }

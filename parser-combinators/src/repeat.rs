@@ -133,7 +133,7 @@ pub struct OneOrMore<P, F>(pub(crate) ZeroOrMore<P, F>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FoundZero;
 
-impl<Input: Clone, P, F, C> ParserOnce<Input> for OneOrMore<P, F>
+impl<Input: Restore, P, F, C> ParserOnce<Input> for OneOrMore<P, F>
 where
     P: ParserMut<Input>,
     F: FnMut() -> C,
@@ -144,13 +144,13 @@ where
 
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse_once(input);
 
         let out = out.unwrap();
 
         if out.is_empty() {
-            (old_input, Err(FoundZero))
+            (input.restore(save), Err(FoundZero))
         } else {
             (input, Ok(out))
         }
@@ -159,7 +159,7 @@ where
     impl_parse_box! { Input }
 }
 
-impl<Input: Clone, P, F, C> ParserMut<Input> for OneOrMore<P, F>
+impl<Input: Restore, P, F, C> ParserMut<Input> for OneOrMore<P, F>
 where
     P: ParserMut<Input>,
     F: FnMut() -> C,
@@ -167,20 +167,20 @@ where
 {
     #[inline]
     fn parse_mut(&mut self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse_mut(input);
 
         let out = out.unwrap();
 
         if out.is_empty() {
-            (old_input, Err(FoundZero))
+            (input.restore(save), Err(FoundZero))
         } else {
             (input, Ok(out))
         }
     }
 }
 
-impl<Input: Clone, P, F, C> Parser<Input> for OneOrMore<P, F>
+impl<Input: Restore, P, F, C> Parser<Input> for OneOrMore<P, F>
 where
     P: Parser<Input>,
     F: Fn() -> C,
@@ -188,13 +188,13 @@ where
 {
     #[inline]
     fn parse(&self, input: Input) -> ParseResult<Input, Self> {
-        let old_input = input.clone();
+        let save = input.save();
         let (input, out) = self.0.parse(input);
 
         let out = out.unwrap();
 
         if out.is_empty() {
-            (old_input, Err(FoundZero))
+            (input.restore(save), Err(FoundZero))
         } else {
             (input, Ok(out))
         }
@@ -207,7 +207,7 @@ pub struct Repeat<P, F, R>(pub(crate) P, pub(crate) F, pub(crate) R);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RangeError;
 
-impl<Input: Clone, P, F, R, C> ParserOnce<Input> for Repeat<P, F, R>
+impl<Input: Restore, P, F, R, C> ParserOnce<Input> for Repeat<P, F, R>
 where
     P: ParserMut<Input>,
     R: RangeBounds<usize>,
@@ -235,7 +235,7 @@ where
             Bound::Excluded(&x) => x,
         };
 
-        let old_input = input.clone();
+        let save = input.save();
 
         for _ in 1..min {
             let (next, out) = self.0.parse_mut(input);
@@ -243,7 +243,7 @@ where
 
             match out {
                 Ok(x) => c.put(x),
-                Err(_) => return (old_input, Err(RangeError)),
+                Err(_) => return (input.restore(save), Err(RangeError)),
             }
         }
 
@@ -263,7 +263,7 @@ where
     impl_parse_box! { Input }
 }
 
-impl<Input: Clone, P, F, R, C> ParserMut<Input> for Repeat<P, F, R>
+impl<Input: Restore, P, F, R, C> ParserMut<Input> for Repeat<P, F, R>
 where
     P: ParserMut<Input>,
     R: RangeBounds<usize>,
@@ -288,7 +288,7 @@ where
             Bound::Excluded(&x) => x,
         };
 
-        let old_input = input.clone();
+        let save = input.save();
 
         for _ in 1..min {
             let (next, out) = self.0.parse_mut(input);
@@ -296,7 +296,7 @@ where
 
             match out {
                 Ok(x) => c.put(x),
-                Err(_) => return (old_input, Err(RangeError)),
+                Err(_) => return (input.restore(save), Err(RangeError)),
             }
         }
 
@@ -314,7 +314,7 @@ where
     }
 }
 
-impl<Input: Clone, P, F, R, C> Parser<Input> for Repeat<P, F, R>
+impl<Input: Restore, P, F, R, C> Parser<Input> for Repeat<P, F, R>
 where
     P: Parser<Input>,
     R: RangeBounds<usize>,
@@ -339,7 +339,7 @@ where
             Bound::Excluded(&x) => x,
         };
 
-        let old_input = input.clone();
+        let save = input.save();
 
         for _ in 1..min {
             let (next, out) = self.0.parse(input);
@@ -347,7 +347,7 @@ where
 
             match out {
                 Ok(x) => c.put(x),
-                Err(_) => return (old_input, Err(RangeError)),
+                Err(_) => return (input.restore(save), Err(RangeError)),
             }
         }
 
