@@ -137,31 +137,4 @@ pub trait ParserCombinators<Input> {
     {
         Optional(self)
     }
-
-    #[inline]
-    fn zero_or_more<F>(self, f: F) -> ZeroOrMore<Self, F>
-    where
-        Self: Sized,
-        ZeroOrMore<Self, F>: ParserOnce<Input>,
-    {
-        ZeroOrMore(self, f)
-    }
-
-    #[inline]
-    fn one_or_more<F>(self, f: F) -> OneOrMore<Self, F>
-    where
-        Self: Sized,
-        OneOrMore<Self, F>: ParserOnce<Input>,
-    {
-        OneOrMore(ZeroOrMore(self, f))
-    }
-
-    #[inline]
-    fn repeat<F, R>(self, r: R, f: F) -> Repeat<Self, F, R>
-    where
-        Self: Sized,
-        Repeat<Self, F, R>: ParserOnce<Input>,
-    {
-        Repeat(self, f, r)
-    }
 }
