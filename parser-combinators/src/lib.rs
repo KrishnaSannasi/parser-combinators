@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![feature(specialization, optin_builtin_traits)]
+#![feature(specialization, unsized_locals)]
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -71,6 +71,8 @@ pub mod prelude {
         pub use crate::infallible::*;
 
         pub fn ignore() {}
+
+        pub fn count() -> crate::repeat::collections::Counter { crate::repeat::collections::Counter(0) }
 
         pub fn fst<T, U>((t, _): (T, U)) -> T {
             t

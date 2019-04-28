@@ -84,21 +84,20 @@ pub struct Func<F: ?Sized>(F);
 
 impl<Input, F, Output, Error> ParserOnce<Input> for FuncOnce<F>
 where
-    F: FnOnce(Input) -> (Input, Result<Output, Error>),
+    F: ?Sized + FnOnce(Input) -> (Input, Result<Output, Error>),
 {
     type Output = Output;
     type Error = Error;
 
     #[inline]
-    fn parse_once(self, input: Input) -> ParseResult<Input, Self> {
+    fn parse_once(self, input: Input) -> ParseResult<Input, Self>
+    where Self: Sized {
         (self.0)(input)
     }
 
     #[inline]
-    fn parse_box(self: Box<Self>, _input: Input) -> ParseResult<Input, Self> {
-        unimplemented!(
-            "`Box<dyn FnOnce(..) -> _>` cannot be called, so it cannot be used as a parser"
-        )
+    fn parse_box(self: Box<Self>, input: Input) -> ParseResult<Input, Self> {
+        (self.0)(input)
     }
 }
 

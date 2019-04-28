@@ -5,6 +5,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 
+pub struct Counter(pub usize);
+
 pub trait Collection<Item> {
     fn put(&mut self, i: Item);
 
@@ -22,6 +24,18 @@ impl<Item> Collection<Item> for () {
     #[inline]
     fn len(&self) -> usize {
         0
+    }
+}
+
+impl<Item> Collection<Item> for Counter {
+    #[inline]
+    fn put(&mut self, _: Item) {
+        self.0 += 1;
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.0
     }
 }
 
