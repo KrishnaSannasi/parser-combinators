@@ -3,5 +3,5 @@
 members = [
     'parser-combinators',
     'json_parser',
-    'runner'
+    'xml_parser'
 ]
