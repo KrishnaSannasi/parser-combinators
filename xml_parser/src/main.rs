@@ -98,19 +98,19 @@ fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = Infall
 
 #[derive(Debug)]
 enum AttributeError {
-    MissingWhitespace,
-    MissingIdent,
-    MissingEqual,
-    MissingValue
+    Whitespace,
+    Ident,
+    Equal,
+    Value
 }
 
 impl From<Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>> for AttributeError {
     fn from(e: Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>) -> Self {
         match e {
-            Either::Left(Either::Left(Either::Left(_))) => AttributeError::MissingWhitespace,
-            Either::Left(Either::Left(Either::Right(_))) => AttributeError::MissingIdent,
-            Either::Left(Either::Right(_)) => AttributeError::MissingEqual,
-            Either::Right(_) => AttributeError::MissingValue
+            Either::Left(Either::Left(Either::Left(_))) => AttributeError::Whitespace,
+            Either::Left(Either::Left(Either::Right(_))) => AttributeError::Ident,
+            Either::Left(Either::Right(_)) => AttributeError::Equal,
+            Either::Right(_) => AttributeError::Value
         }
     }
 }
