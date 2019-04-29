@@ -68,7 +68,9 @@ pub mod prelude {
 
         pub fn ignore() {}
 
-        pub fn count() -> crate::repeat::collections::Counter { crate::repeat::collections::Counter(0) }
+        pub fn count() -> crate::repeat::collections::Counter {
+            crate::repeat::collections::Counter(0)
+        }
 
         pub fn fst<T, U>((t, _): (T, U)) -> T {
             t
@@ -113,10 +115,14 @@ impl<T: Copy> Restore for T {
     type SavePoint = Self;
 
     #[inline(always)]
-    fn save(&self) -> Self { *self }
-    
+    fn save(&self) -> Self {
+        *self
+    }
+
     #[inline(always)]
-    fn restore(self, save: Self::SavePoint) -> Self { save }
+    fn restore(self, save: Self::SavePoint) -> Self {
+        save
+    }
 }
 
 pub trait Parser<Input>: ParserMut<Input> {

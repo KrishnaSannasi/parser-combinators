@@ -97,7 +97,11 @@ impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for StringEr
 
 fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError> {
     match_char('"')
-        .then(any_char().filter(|&x: &char| x != '"').zero_or_more(String::new))
+        .then(
+            any_char()
+                .filter(|&x: &char| x != '"')
+                .zero_or_more(String::new),
+        )
         .map_both(util::snd, util::unwrap_left)
         .then(match_char('"'))
         .map(util::fst)
@@ -237,7 +241,8 @@ fn value() -> Box<dyn for<'a> Parser<&'a str, Output = JsonValue, Error = ValueE
     // This box doesn't allocate, because the insides are zero-sized
     Box::new(
         defer(|| {
-            number().map(JsonValue::from)
+            number()
+                .map(JsonValue::from)
                 .or(string().map(JsonValue::from))
                 .map(Either::into_inner)
                 .or(list().map(JsonValue::from))

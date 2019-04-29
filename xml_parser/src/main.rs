@@ -2,7 +2,7 @@
 #![deny(clippy::all)]
 #![allow(non_camel_case_types)]
 
-use parser_combinators::prelude::*; 
+use parser_combinators::prelude::*;
 
 use parser_combinators::filter::FilterError;
 use parser_combinators::repeat::FoundZero;
@@ -13,7 +13,9 @@ use std::convert::Infallible;
 
 #[derive(Debug)]
 struct LiteralError(&'static str);
-fn match_literal(expected: &'static str) -> impl for<'r> Parser<&'r str, Output = (), Error = LiteralError> + Copy {
+fn match_literal(
+    expected: &'static str,
+) -> impl for<'r> Parser<&'r str, Output = (), Error = LiteralError> + Copy {
     (move |input: &mut &str| {
         if input.starts_with(expected) {
             *input = &input[expected.len()..];
@@ -21,7 +23,8 @@ fn match_literal(expected: &'static str) -> impl for<'r> Parser<&'r str, Output 
         } else {
             Err(LiteralError(expected))
         }
-    }).as_parser_in_place()
+    })
+    .as_parser_in_place()
 }
 
 #[derive(Debug)]
@@ -31,7 +34,8 @@ fn any_char() -> impl for<'a> Parser<&'a str, Output = char, Error = EmptyInput>
         let c = input.chars().next().ok_or(EmptyInput)?;
         *input = &input[c.len_utf8()..];
         Ok(c)
-    }).as_parser_in_place()
+    })
+    .as_parser_in_place()
 }
 
 #[derive(Debug)]
@@ -57,13 +61,14 @@ fn identifier() -> impl for<'a> Parser<&'a str, Output = String, Error = Invalid
         let next_index = matched.len();
         *input = &input[next_index..];
         Ok(matched)
-    }).as_parser_in_place()
+    })
+    .as_parser_in_place()
 }
 
 #[derive(Debug)]
 pub enum MissingQuote {
     First,
-    Second
+    Second,
 }
 
 impl From<Either<LiteralError, LiteralError>> for MissingQuote {
@@ -76,24 +81,26 @@ impl From<Either<LiteralError, LiteralError>> for MissingQuote {
 }
 
 fn quoted_string() -> impl for<'a> Parser<&'a str, Output = String, Error = MissingQuote> + Copy {
-    match_literal("\"").then(
-        any_char()
-            .filter(|&c: &char| c != '"')
-            .zero_or_more(String::new)
-    ).map_both(util::snd, util::unwrap_left)
-        .then(match_literal("\"")).map(util::fst)
+    match_literal("\"")
+        .then(
+            any_char()
+                .filter(|&c: &char| c != '"')
+                .zero_or_more(String::new),
+        )
+        .map_both(util::snd, util::unwrap_left)
+        .then(match_literal("\""))
+        .map(util::fst)
         .map_err(MissingQuote::from)
 }
 
-fn whitespace_char() -> impl for<'a> Parser<&'a str, Output = char, Error = FilterError<EmptyInput>> + Copy {
+fn whitespace_char(
+) -> impl for<'a> Parser<&'a str, Output = char, Error = FilterError<EmptyInput>> + Copy {
     #[allow(clippy::trivially_copy_pass_by_ref)]
-    any_char()
-        .filter(|x: &char| x.is_whitespace())
+    any_char().filter(|x: &char| x.is_whitespace())
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = Infallible> + Copy {
-    whitespace_char()
-        .zero_or_more(util::ignore)
+    whitespace_char().zero_or_more(util::ignore)
 }
 
 #[derive(Debug)]
@@ -101,16 +108,20 @@ enum AttributeError {
     Whitespace,
     Ident,
     Equal,
-    Value
+    Value,
 }
 
-impl From<Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>> for AttributeError {
-    fn from(e: Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>) -> Self {
+impl From<Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>>
+    for AttributeError
+{
+    fn from(
+        e: Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQuote>,
+    ) -> Self {
         match e {
             Either::Left(Either::Left(Either::Left(_))) => AttributeError::Whitespace,
             Either::Left(Either::Left(Either::Right(_))) => AttributeError::Ident,
             Either::Left(Either::Right(_)) => AttributeError::Equal,
-            Either::Right(_) => AttributeError::Value
+            Either::Right(_) => AttributeError::Value,
         }
     }
 }
@@ -118,10 +129,14 @@ impl From<Either<Either<Either<FoundZero, InvalidIdent>, LiteralError>, MissingQ
 fn attribute() -> impl for<'a> Parser<&'a str, Output = (String, String), Error = AttributeError> {
     whitespace_char()
         .one_or_more(util::count)
-        .then(identifier()).map(util::snd)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-        .then(match_literal("=")).map(util::fst)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+        .then(identifier())
+        .map(util::snd)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
+        .then(match_literal("="))
+        .map(util::fst)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
         .then(quoted_string())
         .map_err(AttributeError::from)
 }
@@ -130,7 +145,7 @@ fn attribute() -> impl for<'a> Parser<&'a str, Output = (String, String), Error 
 enum SingleElementError {
     MissingStart,
     InvalidIdent,
-    MissingEnd
+    MissingEnd,
 }
 
 impl From<Either<Either<LiteralError, InvalidIdent>, LiteralError>> for SingleElementError {
@@ -145,13 +160,20 @@ impl From<Either<Either<LiteralError, InvalidIdent>, LiteralError>> for SingleEl
 
 fn single_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = SingleElementError> {
     match_literal("<")
-        .then(identifier()).map(util::snd)
-        .then(attribute().zero_or_more(Vec::new)).map_err(util::unwrap_left)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+        .then(identifier())
+        .map(util::snd)
+        .then(attribute().zero_or_more(Vec::new))
+        .map_err(util::unwrap_left)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
         .then(match_literal("/>"))
         .map_both(
-            |((name, attributes), _)| Element::Node { name, attributes, children: Vec::new() },
-            SingleElementError::from
+            |((name, attributes), _)| Element::Node {
+                name,
+                attributes,
+                children: Vec::new(),
+            },
+            SingleElementError::from,
         )
 }
 
@@ -159,40 +181,70 @@ fn single_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = Si
 enum ParentElementError {
     Open(SingleElementError),
     Close(SingleElementError),
-    WrongCloseTag
+    WrongCloseTag,
 }
 
-impl From<Either<Either<Either<LiteralError, InvalidIdent>, LiteralError>, Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>>> for ParentElementError {
-    fn from(e: Either<Either<Either<LiteralError, InvalidIdent>, LiteralError>,
-               Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>>) -> Self {
+#[allow(clippy::type_complexity)]
+impl
+    From<
+        Either<
+            Either<Either<LiteralError, InvalidIdent>, LiteralError>,
+            Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>,
+        >,
+    > for ParentElementError
+{
+    fn from(
+        e: Either<
+            Either<Either<LiteralError, InvalidIdent>, LiteralError>,
+            Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>,
+        >,
+    ) -> Self {
         match e {
             Either::Left(e) => ParentElementError::Open(e.into()),
-            Either::Right(Either::Left(Either::Left(_))) => ParentElementError::Close(SingleElementError::MissingStart),
-            Either::Right(Either::Left(Either::Right(FilterError::ParseError(_)))) => ParentElementError::Close(SingleElementError::InvalidIdent),
-            Either::Right(Either::Left(Either::Right(FilterError::FilterError))) => ParentElementError::WrongCloseTag,
-            Either::Right(Either::Right(_)) => ParentElementError::Close(SingleElementError::MissingEnd),
+            Either::Right(Either::Left(Either::Left(_))) => {
+                ParentElementError::Close(SingleElementError::MissingStart)
+            }
+            Either::Right(Either::Left(Either::Right(FilterError::ParseError(_)))) => {
+                ParentElementError::Close(SingleElementError::InvalidIdent)
+            }
+            Either::Right(Either::Left(Either::Right(FilterError::FilterError))) => {
+                ParentElementError::WrongCloseTag
+            }
+            Either::Right(Either::Right(_)) => {
+                ParentElementError::Close(SingleElementError::MissingEnd)
+            }
         }
     }
 }
 
 fn parent_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = ParentElementError> {
     match_literal("<")
-        .then(identifier()).map(util::snd)
-        .then(attribute().zero_or_more(Vec::new)).map_err(util::unwrap_left)
-        .then(match_literal(">")).map(util::fst)
-        .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-
+        .then(identifier())
+        .map(util::snd)
+        .then(attribute().zero_or_more(Vec::new))
+        .map_err(util::unwrap_left)
+        .then(match_literal(">"))
+        .map(util::fst)
+        .then(eat_white_space())
+        .map_both(util::fst, util::unwrap_left)
         .and_then(|(ident, attributes): (String, Vec<_>)| {
             let name = ident.clone();
-            
-            element()
-                .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                .zero_or_more(Vec::new)
 
-                .then(match_literal("</")).map_both(util::fst, util::unwrap_right)
-                .then(identifier().filter(move |i: &String| i == &ident)).map(util::fst)
-                .then(match_literal(">")).map(util::fst)
-                .map(move |children| Element::Node { name, attributes, children })
+            element()
+                .then(eat_white_space())
+                .map_both(util::fst, util::unwrap_left)
+                .zero_or_more(Vec::new)
+                .then(match_literal("</"))
+                .map_both(util::fst, util::unwrap_right)
+                .then(identifier().filter(move |i: &String| i == &ident))
+                .map(util::fst)
+                .then(match_literal(">"))
+                .map(util::fst)
+                .map(move |children| Element::Node {
+                    name,
+                    attributes,
+                    children,
+                })
         })
         .map_err(ParentElementError::from)
 }
@@ -205,9 +257,9 @@ fn comment_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = L
                 .map_err(drop)
                 .flat_map(|e| match e {
                     Either::Left(()) => Err(()),
-                    Either::Right(c) => Ok(c)
+                    Either::Right(c) => Ok(c),
                 })
-                .zero_or_more(String::new)
+                .zero_or_more(String::new),
         )
         .map_both(util::snd, util::unwrap_left)
         .map(Element::Comment)
@@ -219,8 +271,10 @@ struct ElementError(((SingleElementError, ParentElementError), LiteralError));
 fn element() -> impl for<'a> Parser<&'a str, Output = Element, Error = ElementError> {
     Box::new(defer(|| {
         single_element()
-            .or(parent_element()).map(Either::into_inner)
-            .or(comment_element()).map(Either::into_inner)
+            .or(parent_element())
+            .map(Either::into_inner)
+            .or(comment_element())
+            .map(Either::into_inner)
             .map_err(ElementError)
     })) as Box<dyn for<'a> Parser<&'a str, Output = _, Error = _>>
 }

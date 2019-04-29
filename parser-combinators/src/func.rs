@@ -91,7 +91,9 @@ where
 
     #[inline]
     fn parse_once(self, input: Input) -> ParseResult<Input, Self>
-    where Self: Sized {
+    where
+        Self: Sized,
+    {
         (self.0)(input)
     }
 
