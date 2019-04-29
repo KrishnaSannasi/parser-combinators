@@ -235,32 +235,17 @@ enum Element {
     },
 }
 
-#[inline(never)]
-fn get_element_from_file(doc: &str) {
-    if let (_, Ok(x)) = element().parse(doc) {
-        println!("{:?}", x);
-    }
-}
-
 fn main() -> std::io::Result<()> {
     use std::fs::File;
     use std::io::Read;
 
-    let mut file = File::open("../text.xml").unwrap();
+    let mut file = File::open("./text.xml").unwrap();
 
     let mut doc = String::new();
     file.read_to_string(&mut doc).unwrap();
     let doc = &doc;
 
-    get_element_from_file(doc);
-
-    // let (doc, parsed_doc) = parser.parse(&doc);
-    
-    // println!("{:#?}", parsed_doc);
-
-    // println!("{}", doc);
-    
-    // assert_eq!(Ok(("", parsed_doc)), element().parse(doc));
+    println!("{:#?}", element().parse(doc));
 
     Ok(())
 }
