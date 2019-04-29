@@ -1,0 +1,9 @@
+<top label="Top">
+<!-- foo bar !!! -->
+    <semi-bottom label = "Bottom"/>
+    <middle>
+        <bottom label = "Another bottom" hi = "foo"/>
+        <bottom label = "Middle 2" hi = "baa"/>
+    </middle>
+    
+</top>
