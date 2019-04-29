@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-use parser_combinators::parse::*;
 use parser_combinators::prelude::*;
 
 use parser_combinators::filter::FilterError;
@@ -25,12 +24,12 @@ fn any_char() -> impl for<'a> Parser<&'a str, Output = char, Error = EmptyInput>
 fn match_char(
     find: char,
 ) -> impl for<'a> Parser<&'a str, Output = (), Error = FilterError<EmptyInput>> {
-    any_char().filter(move |&c| c == find).map(drop)
+    any_char().filter(move |&c: &char| c == find).map(drop)
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = util::Infallible> {
     any_char()
-        .filter(|x| x.is_whitespace())
+        .filter(|x: &char| x.is_whitespace())
         .zero_or_more(util::ignore)
         .map(drop)
 }
@@ -57,13 +56,13 @@ impl From<FoundZero> for NumberError {
 
 fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
     any_char()
-        .filter(|x| x.is_numeric())
+        .filter(|x: &char| x.is_numeric())
         .one_or_more(String::new)
         .then(
             match_char('.')
                 .then(
                     any_char()
-                        .filter(|x| x.is_numeric())
+                        .filter(|x: &char| x.is_numeric())
                         .one_or_more(String::new),
                 )
                 .map(util::snd)
@@ -71,7 +70,7 @@ fn number() -> impl for<'a> Parser<&'a str, Output = f64, Error = NumberError> {
         )
         .map_err(util::unwrap_left)
         .map_err(Into::into)
-        .flat_map(|(mut l, r)| {
+        .flat_map(|(mut l, r): (String, Result<String, _>)| {
             if let Ok(r) = r {
                 let r: String = r;
                 l.push('.');
@@ -98,7 +97,7 @@ impl From<Either<FilterError<EmptyInput>, FilterError<EmptyInput>>> for StringEr
 
 fn string() -> impl for<'a> Parser<&'a str, Output = String, Error = StringError> {
     match_char('"')
-        .then(any_char().filter(|&x| x != '"').zero_or_more(String::new))
+        .then(any_char().filter(|&x: &char| x != '"').zero_or_more(String::new))
         .map_both(util::snd, util::unwrap_left)
         .then(match_char('"'))
         .map(util::fst)
@@ -178,16 +177,14 @@ where
         .then(
             item()
                 .and_then(move |x| {
-                    parser_combinators::parse_once::ParserCombinators::zero_or_more(
-                        match_char(sep)
-                            .then(eat_white_space())
-                            .map_both(util::fst, util::unwrap_left)
-                            .then(item())
-                            .map(util::snd)
-                            .then(eat_white_space())
-                            .map_both(util::fst, util::unwrap_left),
-                        move || f(x),
-                    )
+                    match_char(sep)
+                        .then(eat_white_space())
+                        .map_both(util::fst, util::unwrap_left)
+                        .then(item())
+                        .map(util::snd)
+                        .then(eat_white_space())
+                        .map_both(util::fst, util::unwrap_left)
+                        .zero_or_more(move || f(x))
                 })
                 .map_err(util::unwrap_left)
                 .optional(),
@@ -240,9 +237,7 @@ fn value() -> Box<dyn for<'a> Parser<&'a str, Output = JsonValue, Error = ValueE
     // This box doesn't allocate, because the insides are zero-sized
     Box::new(
         defer(|| {
-            reject!(&str)
-                .or(number().map(JsonValue::from))
-                .map_both(util::unwrap_right, util::snd)
+            number().map(JsonValue::from)
                 .or(string().map(JsonValue::from))
                 .map(Either::into_inner)
                 .or(list().map(JsonValue::from))

@@ -3,7 +3,6 @@
 #![allow(non_camel_case_types)]
 
 use parser_combinators::prelude::*; 
-use parser_combinators::parse::*;
 
 use parser_combinators::filter::FilterError;
 use parser_combinators::repeat::FoundZero;
@@ -89,7 +88,7 @@ fn quoted_string() -> impl for<'a> Parser<&'a str, Output = String, Error = Miss
 fn whitespace_char() -> impl for<'a> Parser<&'a str, Output = char, Error = FilterError<EmptyInput>> + Copy {
     #[allow(clippy::trivially_copy_pass_by_ref)]
     any_char()
-        .filter(|x| x.is_whitespace())
+        .filter(|x: &char| x.is_whitespace())
 }
 
 fn eat_white_space() -> impl for<'a> Parser<&'a str, Output = (), Error = Infallible> + Copy {
@@ -163,9 +162,6 @@ enum ParentElementError {
     WrongCloseTag
 }
 
-// Either<
-// Either<LiteralError, InvalidIdent>, Either<Either<Either<LiteralError, LiteralError>, FilterError<InvalidIdent>>, LiteralError>>
-
 impl From<Either<Either<Either<LiteralError, InvalidIdent>, LiteralError>, Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>>> for ParentElementError {
     fn from(e: Either<Either<Either<LiteralError, InvalidIdent>, LiteralError>,
                Either<Either<LiteralError, FilterError<InvalidIdent>>, LiteralError>>) -> Self {
@@ -186,35 +182,45 @@ fn parent_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = Pa
         .then(match_literal(">")).map(util::fst)
         .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
 
-        .and_then(|(ident, attributes)| {
+        .and_then(|(ident, attributes): (String, Vec<_>)| {
             let name = ident.clone();
-            parser_combinators::parse_once::ParserCombinators::map(
-                
-                element()
-                    .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
-                    .zero_or_more(Vec::new)
+            
+            element()
+                .then(eat_white_space()).map_both(util::fst, util::unwrap_left)
+                .zero_or_more(Vec::new)
 
-                    .then(match_literal("</")).map_both(util::fst, util::unwrap_right)
-                    .then(identifier().filter(move |i| i == &ident)).map(util::fst)
-                    .then(match_literal(">")).map(util::fst),
-                move |children| {
-                    Element::Node {
-                        name, attributes, children
-                    }
-                }
-            )
+                .then(match_literal("</")).map_both(util::fst, util::unwrap_right)
+                .then(identifier().filter(move |i: &String| i == &ident)).map(util::fst)
+                .then(match_literal(">")).map(util::fst)
+                .map(move |children| Element::Node { name, attributes, children })
         })
         .map_err(ParentElementError::from)
+}
 
+fn comment_element() -> impl for<'a> Parser<&'a str, Output = Element, Error = LiteralError> {
+    match_literal("<!--")
+        .then(
+            match_literal("-->")
+                .or(any_char())
+                .map_err(drop)
+                .flat_map(|e| match e {
+                    Either::Left(()) => Err(()),
+                    Either::Right(c) => Ok(c)
+                })
+                .zero_or_more(String::new)
+        )
+        .map_both(util::snd, util::unwrap_left)
+        .map(Element::Comment)
 }
 
 #[derive(Debug)]
-struct ElementError((SingleElementError, ParentElementError));
+struct ElementError(((SingleElementError, ParentElementError), LiteralError));
 
 fn element() -> impl for<'a> Parser<&'a str, Output = Element, Error = ElementError> {
     Box::new(defer(|| {
         single_element()
             .or(parent_element()).map(Either::into_inner)
+            .or(comment_element()).map(Either::into_inner)
             .map_err(ElementError)
     })) as Box<dyn for<'a> Parser<&'a str, Output = _, Error = _>>
 }
@@ -229,21 +235,30 @@ enum Element {
     },
 }
 
+#[inline(never)]
+fn get_element_from_file(doc: &str) {
+    if let (_, Ok(x)) = element().parse(doc) {
+        println!("{:?}", x);
+    }
+}
+
 fn main() -> std::io::Result<()> {
     use std::fs::File;
     use std::io::Read;
 
-    let mut file = File::open("../text.xml")?;
+    let mut file = File::open("../text.xml").unwrap();
 
     let mut doc = String::new();
-    file.read_to_string(&mut doc)?;
+    file.read_to_string(&mut doc).unwrap();
+    let doc = &doc;
 
-    let parser = element();
-    let (doc, parsed_doc) = parser.parse(&doc);
+    get_element_from_file(doc);
+
+    // let (doc, parsed_doc) = parser.parse(&doc);
     
-    println!("{:#?}", parsed_doc);
+    // println!("{:#?}", parsed_doc);
 
-    println!("{}", doc);
+    // println!("{}", doc);
     
     // assert_eq!(Ok(("", parsed_doc)), element().parse(doc));
 
