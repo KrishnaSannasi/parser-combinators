@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    'parser-combinators',
+    'json_parser',
+    'runner'
+]
